@@ -25,7 +25,20 @@ int checkMaterial(workPiece);
 void createWorkPiece(int height, int colour, int material);
 int makeDecision(workPiece);
 struct workPiece retrieveWorkPiece(int workPieceAge);
-void serCinit(void);
+void systemControl(int onOff);
+int getTimeStamp();
+void makeReadings();
+void enforceDecision(int decision);
+void initialiseFestoBoard();
+void stopMeasureDown();
+void moveMeasureDown();
+void stopEjector();
+void activateEjector();
+void stopFestoUp();
+void stopFestoDown();
+void moveFestoUp();
+void moveFestoDown();
+
 
 // Variable Defintions
 
