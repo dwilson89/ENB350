@@ -19,7 +19,7 @@
 
 // Prototype Definitions			
 
-int checkHeight(workPiece);c %
+int checkHeight(workPiece);
 int checkColour(workPiece);
 int checkMaterial(workPiece);
 void createWorkPiece(int height, int colour, int material);
@@ -85,6 +85,9 @@ int main(){
 
 	// Get the time at creation
 	startTime = read_rtc();
+
+	// Initialise the Festo Board
+	initialiseFestoBoard();
 
 
 
@@ -242,8 +245,12 @@ void stopMeasureDown(){
 // the measure device is up and the riser is in the low position
 
 void initialiseFestoBoard(){
-	// Just in case it hasn't been called
+	// Stop Everything Just in Case of Rogue Values
+	stopMeasureDown();
 	stopEjector();
+	stopFestoUp();
+	stopFestoDown();
+	stopMeasureUp();
 
 	// If the Measure is currently down, move it up
 	if(checkMeasureDown()){
