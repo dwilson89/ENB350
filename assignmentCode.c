@@ -38,6 +38,9 @@ int desiredMaterial;
 // Stores current work piece number
 int WPN;
 
+// Stores the time when the board started
+unsigned long startTime;
+
 // Stores the last 16 workpieces
 struct workPiece workPieceHistory[16];
 
@@ -50,6 +53,9 @@ struct workPiece {
 	bool decision;
 	int timeStamp;
 }
+
+// Tracks whether the system is currently on or off
+bool systemOn = FALSE;
 
 
 int main(){
@@ -77,6 +83,9 @@ int main(){
 		workPieceHistory[i].timeStamp = 0;		
 	}
 
+	// Get the time at creation
+	startTime = read_rtc();
+
 
 
 }
@@ -103,27 +112,6 @@ struct workPiece retrieveWorkPiece(int workPieceAge){
 	return workPieceHistory[workPieceIndex];
 
 }
-
-// Creates a new workpiece given measurements from the Festo Board and add it to the workPieceHistory
-void createWorkPiece(int height, int colour, int material){
-	struct workPiece newWorkPiece;
-
-	// Set the workPiece's number to the count of work pieces
-	newWorkPiece.number = WPN;
-
-	// Set the Height, Colour and Material for the new WorkPiece
-	newWorkPiece.height = height;
-	newWorkPiece.colour = colour;
-	newWorkPiece.material = material;
-
-	// Replace the oldest workPiece in the History
-	int workPieceIndex = WPN%16;
-	workPieceHistory[workPieceIndex] = newWorkPiece;
-
-	// Increment the WPN counter
-	WPN++;
-}
-
 
 // Checks if the given workpiece is within the height limits
 // Return 0 if outside of limits, 1 if within limits
@@ -248,4 +236,148 @@ void moveMeasureDown(){
 // Stops Moving the Measure Down on the Festo Board
 void stopMeasureDown(){
 	BitWrPortI(PBDR, &PBDRShadow, 0, Festo_Measure_Down);
+}
+
+// Initialises the Festo Board for First Use, ensuring Ejector is off and
+// the measure device is up and the riser is in the low position
+
+void initialiseFestoBoard(){
+	// Just in case it hasn't been called
+	stopEjector();
+
+	// If the Measure is currently down, move it up
+	if(checkMeasureDown()){
+		stopMeasureDown(); // Just in case this is still set
+		while(checkMeasureDown()){ // Until the measure is no longer down, keep moving it up
+			moveMeasureUp();
+		}
+		stopMeasureUp(); // Once it's up, stop the up bit
+	}
+
+	// If the Riser is currently up, set it to down
+	if(checkRiserUp()){
+		stopFestoUp(); // Just in case this is still set
+		while(!checkRiserDown()){  // Until the festo riser is down, keep moving it down
+			moveFestoDown();
+		}
+		stopFestoDown(); // Once its down, set the Down bit off
+	}
+
+}
+
+// Enforces the Decision Requirements
+// If the Decision is a 0 (reject) then it moves to the lower riser position and ejects
+// If the Decision is a 1 (accept) then it moves to the higher riser position and ejects
+
+void enforceDecision(int decision){
+
+	// If the Measure is currently down, move it up
+	if(checkMeasureDown()){
+		stopMeasureDown(); // Just in case this is still set
+		while(checkMeasureDown()){ // Until the measure is no longer down, keep moving it up
+			moveMeasureUp();
+		}
+		stopMeasureUp(); // Once it's up, stop the up bit
+	}
+
+	// If it is to be rejected
+	if(decision == 0){
+		// Perform these just in case they arent set correctly
+		stopEjector();
+		stopFestoUp();
+		stopFestoDown();
+
+		// Make the Riser move the lower position and eject
+		while(!checkRiserDown()){ // While its not down, move the festo down
+			moveFestoDown();
+		}
+		stopFestoDown();
+		activateEjector();
+	}
+
+	// Else it is to be accepted
+	else{
+		// Perform these just in case they arent set correctly
+		stopEjector();
+		stopFestoDown();
+		stopFestoUp();
+
+		// Make the riser move the higher position and eject
+		while(!checkRiserUp()){ // While its not up, move the festo up
+			moveFestoUp();
+		}
+		stopFestoUp();
+		activateEjector();
+	}
+}
+
+// Moves the festo riser up and performs all the readings required, creating a new
+// WorkPiece and adding to the workpiece history array and enforcing the decision made
+void workPiece makeReadings(){
+
+	if(systemOn){  // Only perform Readings if system is currently on
+
+		struct workPiece tempPiece;
+
+		// Just in case these haven't been set correctly
+		stopEjector();
+		stopFestoDown();
+		stopFestoUp();
+
+		// Make sure the measure device is up
+		// If the Measure is currently down, move it up
+		if(checkMeasureDown()){
+			stopMeasureDown(); // Just in case this is still set
+			while(checkMeasureDown()){ // Until the measure is no longer down, keep moving it up
+				moveMeasureUp();
+			}
+			stopMeasureUp(); // Once it's up, stop the up bit
+		}
+
+		// Move the Festo Riser to the up position
+		while(!checkRiserUp()){
+			moveFestoUp();
+		}
+		stopFestoUp();
+
+		// Move the Measure Device Down
+		while(!checkMeasureDown){
+			moveMeasureDown();
+		}
+		stopMeasureDown();
+
+
+		// Perform Readings for Colour, Material, Height
+		tempPiece.colour = checkColour();
+		tempPiece.height = checkHeight();
+		tempPiece.material = checkMaterial();
+
+		// Add the Work Piece Number and Timestamp
+		tempPiece.number = WPN;
+		tempPiece.timeStamp = getTimeStamp();
+
+		// Add the Decision to the WorkPiece
+		tempPiece.decision = FALSE:
+		tempPiece.decision = makeDecision(tempPiece);
+
+		// Enforce the decision
+		enforceDecision(tempPiece.decision);
+
+		// Add the new workPiece to the history, replacing the oldest current workPiece
+		int workPieceIndex = WPN%16;
+		workPieceHistory[workPieceIndex] = tempPiece;
+
+		// Increment the WPN Counter
+		WPN++;
+	}
+}
+
+// todo: add code here
+int getTimeStamp(){
+
+	// get the current time and compare to the start time, the difference is the timestamp of this
+	int currentTime;
+
+	currentTime = read_rtc();
+	return currentTime - startTime;
 }
