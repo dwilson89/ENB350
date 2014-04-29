@@ -55,14 +55,16 @@ struct workPiece {
 }
 
 // Tracks whether the system is currently on or off
-bool systemOn = FALSE;
-
+bool systemOn;
 
 int main(){
 
 	int i = 0;
 	// Initialise Rabbit Ports
 	brdInit();
+
+	// Set initial system control to off for safety purposes
+	systemOn = FALSE;
 
 	// Set All Port A Values to Input
 	WrPortI(SPCR, &SPCRShadow, 0x80);
@@ -88,9 +90,6 @@ int main(){
 
 	// Initialise the Festo Board
 	initialiseFestoBoard();
-
-
-
 }
 
 
@@ -245,6 +244,7 @@ void stopMeasureDown(){
 // the measure device is up and the riser is in the low position
 
 void initialiseFestoBoard(){
+
 	// Stop Everything Just in Case of Rogue Values
 	stopMeasureDown();
 	stopEjector();
@@ -348,7 +348,7 @@ void workPiece makeReadings(){
 		stopFestoUp();
 
 		// Move the Measure Device Down
-		while(!checkMeasureDown){
+		while(!checkMeasureDown()){
 			moveMeasureDown();
 		}
 		stopMeasureDown();
@@ -387,4 +387,10 @@ int getTimeStamp(){
 
 	currentTime = read_rtc();
 	return currentTime - startTime;
+}
+
+// Turns the System On or Off
+// If given 0, turns system off. If given 1, turns system on
+void systemControl(int onOff){
+	systemOn = onOff;
 }
