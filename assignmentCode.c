@@ -320,7 +320,7 @@ void enforceDecision(int decision){
 
 // Moves the festo riser up and performs all the readings required, creating a new
 // WorkPiece and adding to the workpiece history array and enforcing the decision made
-void workPiece makeReadings(){
+void makeReadings(){
 
 	if(systemOn){  // Only perform Readings if system is currently on
 
