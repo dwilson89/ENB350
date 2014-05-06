@@ -288,56 +288,46 @@ void makeReadings(){
 
 		struct workPiece tempPiece;
       int workPieceIndex;
-      int j;
 
 		// Just in case these haven't been set correctly
 		stopEjector();
 		stopFestoDown();
 		stopFestoUp();
 
-      // make sure the festo is down
-      printf("Begin moving festo\n");
-      moveFestoDown();
-      // Delay
-      tempPiece.colour = checkColour();
-		tempPiece.material = checkMaterial();
-      printf("Colour and Material Read\n");
-      stopFestoDown();
-
 		// Make sure the measure device is up
 		// If the Measure is currently down, move it up
-	  /*	if(checkMeasureDown()){
+		if(checkMeasureDown()){
 			stopMeasureDown(); // Just in case this is still set
 			while(checkMeasureDown()){ // Until the measure is no longer down, keep moving it up
 			 stopMeasureDown();
 			}
-		}      */
+		}
 
-      printf("Checked Measure Down\n");
 		// Move the Festo Riser to the up position
-		moveFestoUp();
-
-      printf("Begin moving Up\n");
-      // Delay
+		while(!checkRiserUp()){
+			moveFestoUp();
+		}
 		stopFestoUp();
-      printf("Stop Moving Up\n");
 
 		// Move the Measure Device Down
+		while(!checkMeasureDown()){
 			moveMeasureDown();
+		}
+		stopMeasureDown();
 
 
-      //tempPiece.height = checkHeight();
-      // Delay
-      stopMeasureDown();
-      // Delay
+		// Perform Readings for Colour, Material, Height
+		tempPiece.colour = checkColour();
+		tempPiece.height = checkHeight();
+		tempPiece.material = checkMaterial();
 
 		// Add the Work Piece Number and Timestamp
 		tempPiece.number = WPN;
 		tempPiece.timeStamp = getTimeStamp();
 
 		// Add the Decision to the WorkPiece
-		tempPiece.decision = TRUE;
-		//tempPiece.decision = makeDecision(tempPiece);
+		tempPiece.decision = FALSE;
+		tempPiece.decision = makeDecision(tempPiece);
 
 		// Enforce the decision
 		enforceDecision(tempPiece.decision);
@@ -388,71 +378,53 @@ int main(){
 
 	// Get the time at creation
 	startTime = read_rtc();
+   printf("%d", startTime);
 
 	// Initialise the Festo Board
 	initialiseFestoBoard();
    systemOn = TRUE;
-   printf("System online\n");
 
 	// For Testing
 	while(1){
 
 			key = getchar();
-
 			switch(key){
 				case 0x71:
 					exit(0);
 
 				case 119:				// w
             	printf("Festo Up\n");
-               stopFestoDown();
-               moveFestoUp();
-           		break;
+					while(checkRiserDown()){
+						moveFestoUp();
+					}
+					break;
 
 				case 97:				// a
             	printf("Ejector Activate\n");
-					activateEjector();
-					break;
-
-            case 122:				// z
-            	printf("Ejector Deactivate\n");
 					stopEjector();
+					activateEjector();
 					break;
 
 				case 115:				// s
             	printf("Festo Down\n");
-               stopFestoUp();
-					moveFestoDown();
+					while(checkRiserUp()){
+						moveFestoDown();
+					}
 					break;
 
 				case 100:				// d
-            	printf("Measure Down\n") ;
-					moveMeasureDown();
+            	printf("Measure Down\n");
+					while(!checkMeasureDown()){
+						moveMeasureDown();
+					}
 					break;
 
-				case 101:				// e
+				/*case 101:				// e
             	printf("Measure Up\n");
-					stopMeasureDown();
-					break;
-
-            case 109:
-            	printf("Checking Material\n");
-               printf("%d\n", checkMaterial());
-               break;
-
-            case 110:
-            	printf("Checking Colour\n");
-               printf("%d\n", checkColour());
-               break;
-
-         	case 112:
-            	printf("Making Readings\n");
-               makeReadings();
-               printf("Colour Is %d\n", workPieceHistory[0].colour);
-               printf("Materal Is %d\n", workPieceHistory[0].material);
-               printf("Decision is %d\n", workPieceHistory[0].decision);
-               break;
-
+					while(checkMeasureDown()){
+						stopMeasureDown();
+					}
+					break; */
 
             default:
             	break;
