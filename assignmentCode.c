@@ -73,6 +73,7 @@ bool systemOn;
 int main(){
 
 	int i = 0;
+	auto INT16S  key;
 	// Initialise Rabbit Ports
 	brdInit();
 
@@ -103,6 +104,48 @@ int main(){
 
 	// Initialise the Festo Board
 	initialiseFestoBoard();
+
+	// For Testing
+	while(1){
+		if (kbhit()){
+			systemOn = TRUE:
+			key = getchar();
+			switch(key){
+				case 0x71:
+					exit(0);
+
+				case 119:				// w
+					while(checkRiserDown()){
+						moveFestoUp();
+					} 
+					break;
+
+				case 97:				// a
+					stopEjector();
+					activateEjector();
+					break;
+
+				case 115:				// s
+					while(checkRiserUp()){
+						moveFestoDown();
+					}
+					break;
+
+				case 100:				// d
+					while(!checkMeasureDown()){
+						moveMeasureDown();
+					}
+					break;
+
+				case 101:				// e
+					while(checkMeasureDown()){
+						moveMeasureUp();
+					}
+					break;
+
+			}
+		}
+	}
 }
 
 
