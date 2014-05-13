@@ -46,7 +46,6 @@
 #define GAIN_ADC               1 // 11.11volts festo height
 #define CHANNEL_ADC            0 // channel 0
 
-
 // RCM40xx boards have no pull-up on serial Rx lines, and we assume in this
 // sample the possibility of disconnected or non-driven Rx line.  This sample
 // has no need of asynchronous line break recognition.  By defining the
@@ -100,9 +99,6 @@
 					Variables Definitions
 **********************************************************
 */
-
-OS_EVENT 	*WPNSem; // Semaphore for WorkPiece Access
-
 // Structure to contain data for an individual Work Piece
 struct workPiece {
 	int number;
@@ -214,7 +210,6 @@ int main(){
    printf("System online\n");
 
    OSInit();
-   WPNSem = OSSemCreate(1);
    TaskStartCreateTasks();
    OSStart();
 
@@ -289,9 +284,7 @@ void FestoTask (void *data){
    struct workPiece tempPiece;
    int workPieceIndex;
    float tempHeight = 0;
-   float currentHeight;
    int i = 0;
-   INT8U err;
 
 	data = data;
 
@@ -354,18 +347,14 @@ void FestoTask (void *data){
 		}
 
       printf("Measure down \n");
+
       // Sample a number of heights to get the average height
-      for(i = 0; i < 20; i++){
-      	currentHeight = checkHeight();
-         tempHeight = tempHeight + currentHeight;
-         printf("Current Height is %f\n", currentHeight);
-         printf("Temp Height is %f\n", tempHeight);
+      for(i = 0; i < 40; i++){
+         tempHeight += checkHeight();
          OSTimeDly(5);
       }
-      printf("Temp Height is %f\n", tempHeight);
-      //tempHeight = tempHeight * 1000000;
-		tempPiece.height = tempHeight / 20;
-      printf("Height is %f\n", tempPiece.height);
+		tempPiece.height = tempHeight / 40;
+      printf("Height is %d\n", tempPiece.height);
 
 		OSTimeDly(OS_TICKS_PER_SEC);
 
@@ -390,10 +379,11 @@ void FestoTask (void *data){
 		tempPiece.decision = FALSE;
 		//tempPiece.decision = makeDecision(tempPiece);
 
+		//TODO Add Semaphore Pend Here
+
 		// Enforce the decision
 		enforceDecision(tempPiece.decision);
 
-      OSSemPend(WPNSem, 0, &err);
 		// Add the new workPiece to the history, replacing the oldest current workPiece
 		workPieceIndex = WPN%16;
 		workPieceHistory[workPieceIndex] = tempPiece;
@@ -401,8 +391,7 @@ void FestoTask (void *data){
 		// Increment the WPN Counter
 		WPN++;
 
-      OSSemPost(WPNSem);
-
+		// TODO Add Semaphore Post here
 	}
 
 }
@@ -522,7 +511,7 @@ int checkMeasureDown(){
 // Checks the Height of the current workPiece, sampled 10 times
 // Returns the current height as a float
 float checkHeight(){
-   float voltageRead;
+	float voltageRead;
 	voltageRead = anaInVolts(CHANNEL_ADC, GAIN_ADC);
 	return voltageRead;
 }
@@ -673,5 +662,3 @@ unsigned long getTimeStamp(){
 void systemControl(int onOff){
 	systemOn = onOff;
 }
-
-
