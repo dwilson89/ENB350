@@ -41,6 +41,11 @@
 #define _232BAUD 19200
 #endif
 
+// Analogue-to-digital Stuff
+#define ADC_SCLKBRATE          115200ul
+#define GAIN_ADC               1 // 11.11volts festo height
+#define CHANNEL_ADC            0 // channel 0
+
 // RCM40xx boards have no pull-up on serial Rx lines, and we assume in this
 // sample the possibility of disconnected or non-driven Rx line.  This sample
 // has no need of asynchronous line break recognition.  By defining the
@@ -57,9 +62,9 @@
 #define Festo_Sense_Metallic			0
 #define Festo_Sense_In_Place			1
 #define Festo_Sense_Colour				2
-#define Festo_Sense_Riser_Down		3
+#define Festo_Sense_Riser_Down			3
 #define Festo_Sense_Riser_Up			4
-#define Festo_Sense_Ejector			5
+#define Festo_Sense_Ejector				5
 #define Festo_Sense_Measure_Down		6
 
 // Serial Port B Bit Values Used for Various Festo Outputs
@@ -68,8 +73,8 @@
 #define Festo_Ejector					6
 #define Festo_Measure_Down				7
 
-#define FALSE								0
-#define TRUE								1
+#define FALSE							0
+#define TRUE							1
 
 //constants for multitasking
 
@@ -77,7 +82,7 @@
 
 #define          TASK_START_ID       0                /* Application tasks IDs                         */
 #define          FESTO_TASK_ID       1
-#define          STOP_TASK_ID           2
+#define          STOP_TASK_ID        2
 #define          TASK_3_ID           3
 #define          TASK_4_ID           4
 #define          TASK_5_ID           5
@@ -330,6 +335,7 @@ void FestoTask (void *data){
 		OSTimeDly(OS_TICKS_PER_SEC);
 
 		moveFestoUp();
+
       printf("Check up %d\n", checkRiserUp());
 		//state 6 - rise platform
 		while(!checkRiserUp()){
@@ -380,6 +386,8 @@ void FestoTask (void *data){
 		tempPiece.decision = FALSE;
 		//tempPiece.decision = makeDecision(tempPiece);
 
+		//TODO Add Semaphore Pend Here
+
 		// Enforce the decision
 		enforceDecision(tempPiece.decision);
 
@@ -389,6 +397,8 @@ void FestoTask (void *data){
 
 		// Increment the WPN Counter
 		WPN++;
+
+		// TODO Add Semaphore Post here
 	}
 }
 
@@ -507,9 +517,9 @@ int checkMeasureDown(){
 // Checks the Height of the current workPiece
 // Returns the current height as a float
 float checkHeight(){
-	// TODO: Add ADL Conversion Code Here
-
-   return 0;
+	float voltageRead;
+	voltageRead = anaInVolts(CHANNEL_ADC, GAIN_ADC);
+	return voltageRead;
 }
 
 // Moves the Riser on the Festo Down
