@@ -9,18 +9,19 @@
 */
 
 // Redefine uC/OS-II configuration constants as necessary
-#define OS_MAX_EVENTS         	3      // Maximum number of events (semaphores, queues, mailboxes)
+#define OS_MAX_EVENTS         	4      // Maximum number of events (semaphores, queues, mailboxes)
 #define OS_MAX_TASKS           	4      // Maximum number of tasks system can create (less stat and idle tasks)
 
 //#define OS_TASK_CREATE_EN    		0      // Disable normal task creation
 //#define OS_TASK_CREATE_EXT_EN  	1      // Enable extended task creation
 #define OS_TASK_STAT_EN      		1      // Enable statistics task creation
-#define OS_MBOX_EN         		1      // Enable mailboxes
-#define OS_MBOX_POST_EN      		1      // Enable MboxPost
+#define OS_TASK_CREATE_EN      1       // enable creation of task
+#define OS_TASK_DEL_EN         1       // enable deletion of task
 #define OS_TIME_DLY_HMSM_EN  		1      // Enable OSTimeDlyHMSM
 #define OS_SEM_EN          		1      // Enable semaphore usage
 #define STACK_CNT_512        		8      // number of 512 byte stacks (application tasks + stat task + prog stack)
-
+#define OS_SCHED_LOCK_EN       1
+#define OS_TASK_SUSPEND_EN     1
 #define TASK_DELAY 75
 
 #use "ucos2.lib"
@@ -46,6 +47,7 @@
 #define GAIN_ADC               1 // 11.11volts festo height
 #define CHANNEL_ADC            0 // channel 0
 
+#define S2_BIT  4
 
 // RCM40xx boards have no pull-up on serial Rx lines, and we assume in this
 // sample the possibility of disconnected or non-driven Rx line.  This sample
@@ -101,7 +103,10 @@
 **********************************************************
 */
 
-OS_EVENT 	*WPNSem; // Semaphore for WorkPiece Access
+OS_EVENT 	* WPNSem; // Semaphore for WorkPiece Access
+OS_EVENT 	* WPNCountSem;
+OS_EVENT 	* LHeightSem;
+OS_EVENT 	* UHeightSem;
 
 // Structure to contain data for an individual Work Piece
 struct workPiece {
@@ -170,9 +175,10 @@ void FestoTask(void *data);
 void StopTask(void *data);
 
 
+
 /*
 ************************************************************
-
+                         Main Function and Tasks
 ************************************************************
 */
 
@@ -215,6 +221,10 @@ int main(){
 
    OSInit();
    WPNSem = OSSemCreate(1);
+   LHeightSem = OSSemCreate(1);
+	UHeightSem = OSSemCreate(1);
+   WPNCountSem = OSSemCreate(1);
+
    TaskStartCreateTasks();
    OSStart();
 
@@ -282,10 +292,6 @@ static void TaskStartCreateTasks(void){
 */
 void FestoTask (void *data){
 
-
-
-
-	//assume everyting is already in correct positions
    struct workPiece tempPiece;
    int workPieceIndex;
    float tempHeight = 0;
@@ -297,8 +303,8 @@ void FestoTask (void *data){
 
 	for(;;){
 
-   	printf(" Init\n");
-		//state 2 - correct positions
+		//state 2 - correct position
+
 		initialiseFestoBoard();
 
 		//reset positions
@@ -306,7 +312,7 @@ void FestoTask (void *data){
 		OSTimeDly(OS_TICKS_PER_SEC);
 
 		//state 3 - block in position
-      printf("check for block\n");
+      //printf("check for block\n");
 		while(!checkInPlace()){
 
 			OSTimeDly(OS_TICKS_PER_SEC);
@@ -330,14 +336,14 @@ void FestoTask (void *data){
 
 		moveFestoUp();
 
-      printf("Check up %d\n", checkRiserUp());
+      //printf("Check up %d\n", checkRiserUp());
 		//state 6 - rise platform
 		while(!checkRiserUp()){
 
 			OSTimeDly(OS_TICKS_PER_SEC);
 
 		}
-      printf("Is up \n");
+      //printf("Is up \n");
 		stopFestoUp();
 
 		//delay after state 6
@@ -345,7 +351,7 @@ void FestoTask (void *data){
 
 		//state 8 - check height
 
-      printf("Measure \n");
+      //printf("Measure \n");
 		moveMeasureDown();
 
 		while(!checkMeasureDown()){
@@ -353,7 +359,7 @@ void FestoTask (void *data){
 			OSTimeDly(OS_TICKS_PER_SEC);
 		}
 
-      printf("Measure down \n");
+      //printf("Measure down \n");
       // Sample a number of heights to get the average height
       for(i = 0; i < 20; i++){
       	currentHeight = checkHeight();
@@ -393,14 +399,15 @@ void FestoTask (void *data){
 		// Enforce the decision
 		enforceDecision(tempPiece.decision);
 
-      OSSemPend(WPNSem, 0, &err);
+      OSSemPend(WPNCountSem, 0, &err);
 		// Add the new workPiece to the history, replacing the oldest current workPiece
 		workPieceIndex = WPN%16;
-		workPieceHistory[workPieceIndex] = tempPiece;
+     	// Increment the WPN Counter
+      WPN++;
+      OSSemPost(WPNCountSem);
 
-		// Increment the WPN Counter
-		WPN++;
-
+      OSSemPend(WPNSem, 0, &err);
+      workPieceHistory[workPieceIndex] = tempPiece;
       OSSemPost(WPNSem);
 
 	}
@@ -409,14 +416,29 @@ void FestoTask (void *data){
 
 //stop task
 void StopTask (void *data){
-
+   int end = 0;
    data = data;
 	for (;;) {
 
-        //see if stop has been hit if not
-        //if it has stop task1 and do nothing until released
-        OSTimeDly(OS_TICKS_PER_SEC);
-    }
+      if (!BitRdPortI(PBDR, S2_BIT)){
+         systemOn = !systemOn;								//set valid switch
+
+      	if (systemOn == FALSE){
+				//suspendtask
+            OSTaskSuspend(FESTO_TASK_PRIO);
+            printf("STOP");
+
+      	} else {
+
+           //turn task back on
+           OSTaskResume(FESTO_TASK_PRIO);
+           printf("START");
+         }
+		}
+      //while (BitRdPortI(PBDR, S2_BIT)){};
+
+   	OSTimeDly(OS_TICKS_PER_SEC);
+   }
 }
 
 /*
@@ -441,9 +463,13 @@ struct workPiece retrieveWorkPiece(int workPieceAge){
 // Checks if the given workpiece is within the height limits
 // Return 0 if outside of limits, 1 if within limits
 int checkHeightCorrect(struct workPiece givenWorkPiece){
-	if(givenWorkPiece.height <= heightUpper && givenWorkPiece.height >= heightLower){
-		return 1;
+   INT8U err;
+   OSSemPend(UHeightSem, 0, &err); OSSemPend(LHeightSem, 0, &err);
+   if(givenWorkPiece.height <= heightUpper && givenWorkPiece.height >= heightLower){
+      OSSemPost(UHeightSem); OSSemPost(LHeightSem);
+      return 1;
 	}
+
 	return 0;
 }
 
@@ -579,22 +605,18 @@ void initialiseFestoBoard(){
 	stopFestoDown();
 
 	// If the Measure is currently down, move it up
-   printf("Measure down %d \n",checkMeasureDown());
 	if(checkMeasureDown()){
 		stopMeasureDown(); // Just in case this is still set
 		while(checkMeasureDown()){ // Until the measure is no longer down, keep moving it up
 			OSTimeDly(OS_TICKS_PER_SEC);
 		}
 	}
-   printf("Riser Up %d \n",checkRiserUp());
-   printf("Riser Down %d \n",checkRiserDown());
+
 	// If the Riser is currently up, set it to down
 	if(checkRiserUp()){
 		stopFestoUp(); // Just in case this is still set
       moveFestoDown();
-      printf("%d \n",checkRiserDown());
 		while(!checkRiserDown()){  // Until the festo riser is down, keep moving it down
-         printf("not down %d \n",checkRiserDown());
          OSTimeDly(OS_TICKS_PER_SEC);
 		}
 		stopFestoDown(); // Once its down, set the Down bit off
