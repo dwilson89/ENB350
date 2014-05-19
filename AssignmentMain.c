@@ -136,6 +136,12 @@ struct workPiece workPieceHistory[16];
 // Tracks whether the system is currently on or off
 int systemOn;
 
+// Tracks whether the system is calibrated or not
+int calibrated;
+
+// For Calibration, the height values for each piece is;
+auto unsigned int firstPiece, secondPiece;
+
 /*
 ************************************************************
 						Function Prototypes
@@ -168,6 +174,7 @@ void initialiseFestoBoard();
 void enforceDecision(int decision);
 unsigned long getTimeStamp();
 void systemControl(int onOff);
+void calibrateHeight();
 
 //multitasking prototypes
 static void TaskStartCreateTasks(void);
@@ -310,6 +317,11 @@ void FestoTask (void *data){
 		//reset positions
 
 		OSTimeDly(OS_TICKS_PER_SEC);
+
+		// If system isn't calibrated, calibrate it now
+		if(!calibrated){
+			calibrateHeight();
+		}
 
 		//state 3 - block in position
       //printf("check for block\n");
@@ -621,6 +633,113 @@ void initialiseFestoBoard(){
 		}
 		stopFestoDown(); // Once its down, set the Down bit off
 	}
+}
+
+// Calibrate the Height Readings
+void calibrateHeight(){
+
+	printf("Beginning Calibration");
+	printf("Please insert the 25mm Piece");
+
+	// Wait until the piece is in place, then give enough time to move hand back away
+	waitfor(Festo_Sense_In_Place);
+	waitfor(DelayMS(1000));
+
+	// Move the Festo to the upper position
+
+	while(!checkRiserUp()){
+
+		OSTimeDly(OS_TICKS_PER_SEC);
+
+	}
+
+	stopFestoUp();
+
+	// Delay Briefly for safety and to make sure it is set in the right place
+	OSTimeDly(OS_TICKS_PER_SEC);
+
+    // Move the height reading down so the height can be read and wait until
+    // it is confirmed that the height measure is down
+
+	moveMeasureDown();
+
+	while(!checkMeasureDown()){
+
+		OSTimeDly(OS_TICKS_PER_SEC);
+
+	}
+
+	// Read the first value 
+
+	firstPiece = anaIn(0, SINGLE, GAIN_ADC);
+
+	// Reset back to the base position by moving the measure back up and the festo
+	// back to the lower position
+
+	while(checkMeasureDown()){
+		stopMeasureDown();
+	}
+	OSTimeDly(OS_TICKS_PER_SEC);
+
+	moveFestoDown();
+	while(checkRiserUp()){
+		OSTimeDly(OS_TICKS_PER_SEC);
+	}
+	stopFestoDown();
+
+	printf("Please remove the 25mm Piece");
+	waitfor(!Festo_Sense_In_Place);
+	printf("Please insert the 28mm Piece");
+	waitfor(DelayMS(1000));
+
+	// Move the Festo to the upper position
+
+	while(!checkRiserUp()){
+
+		OSTimeDly(OS_TICKS_PER_SEC);
+
+	}
+
+	stopFestoUp();
+
+	// Delay Briefly for safety and to make sure it is set in the right place
+	OSTimeDly(OS_TICKS_PER_SEC);
+
+    // Move the height reading down so the height can be read and wait until
+    // it is confirmed that the height measure is down
+
+	moveMeasureDown();
+
+	while(!checkMeasureDown()){
+
+		OSTimeDly(OS_TICKS_PER_SEC);
+
+	}
+
+	// Read the first value 
+
+	secondPiece = anaIn(0, SINGLE, GAIN_ADC);
+
+	// Reset back to the base position by moving the measure back up and the festo
+	// back to the lower position
+
+	while(checkMeasureDown()){
+		stopMeasureDown();
+	}
+	OSTimeDly(OS_TICKS_PER_SEC);
+
+	moveFestoDown();
+	while(checkRiserUp()){
+		OSTimeDly(OS_TICKS_PER_SEC);
+	}
+	stopFestoDown();
+
+	printf("Calibrating, you can remove the 28mm Piece Now");
+	anaInCalib(0, SINGLE, GAIN_ADC, firstPiece, 25, secondPiece, 28);
+	anaInEEWr(0, SINGLE, GAIN_ADC);
+	printf("Calibration Complete");
+
+	calibrated = 1;
 
 }
 
