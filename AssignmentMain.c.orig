@@ -193,12 +193,15 @@ unsigned int firstPiece, secondPiece;
 
 // Tracks which baord it is being tested on
 int isPlusBoard = 1;
+<<<<<<< local
 
 char sync, currWorkpiece;
 char masterMode, displayMode, downloadMode, thresholdMode;
 uint8_t UpperThresh, LowerThresh;
 
 struct workPiece wp[MAXPIECES];
+=======
+>>>>>>> other
 
 /*
 ************************************************************
@@ -267,8 +270,11 @@ int main(){
 
 	int i = 0;
 	auto int  key;
+<<<<<<< local
 	sync = 0;
   currWorkpiece = 0;
+=======
+>>>>>>> other
 
    // For Testing
    heightUpper = 30;
@@ -276,14 +282,20 @@ int main(){
    desiredColour = 1;
    desiredMaterial = 0;
 
+<<<<<<< local
    WPN = 0;
 
    masterMode = REALTIME;
    displayMode = DISPLAY_TIME;
    thresholdMode = THRESHOLD_IDLE;
 
+=======
+>>>>>>> other
    calibrated = 1;
+<<<<<<< local
 
+=======
+>>>>>>> other
 	// Initialise Rabbit Ports
 	brdInit();
 
@@ -380,7 +392,11 @@ void FestoTask (void *data){
 
 		//reset positions
 
+<<<<<<< local
 		OSTimeDly(delay);
+=======
+		OSTimeDly(OS_TICKS_PER_SEC);
+>>>>>>> other
       printf("about to calibrate\n");
 		// If system isn't calibrated, calibrate it now
 		if(!calibrated){
@@ -433,18 +449,30 @@ void FestoTask (void *data){
 
 			while(!checkMeasureDown()){
 
+<<<<<<< local
 				OSTimeDly(delay);
+=======
+				OSTimeDly(OS_TICKS_PER_SEC);
+>>>>>>> other
 			}
       }
 
       //printf("Measure down \n");
       // Sample a number of heights to get the average height
+<<<<<<< local
       for(i = 0; i < 5; i++){
+=======
+      for(i = 0; i < 10; i++){
+>>>>>>> other
       	currentHeight = checkHeight();
          tempHeight = tempHeight + currentHeight;
          OSTimeDly(1);
       }
+<<<<<<< local
 		tempPiece.height = tempHeight / 5;
+=======
+		tempPiece.height = tempHeight / 10;
+>>>>>>> other
       printf("height is %f\n", tempPiece.height);
 
 		OSTimeDly(OS_TICKS_PER_SEC);
@@ -455,7 +483,11 @@ void FestoTask (void *data){
 			//put it back into position
 			while(checkMeasureDown()){
 
+<<<<<<< local
 				OSTimeDly(delay);
+=======
+				OSTimeDly(OS_TICKS_PER_SEC);
+>>>>>>> other
 
 			}
       }
@@ -471,9 +503,16 @@ void FestoTask (void *data){
     printf("Get Time Stamp\n");
 		// Add the Decision to the WorkPiece
 		tempPiece.decision = FALSE;
+<<<<<<< local
     printf("decision added\n");
+=======
+>>>>>>> other
 		tempPiece.decision = makeDecision(tempPiece);
+<<<<<<< local
    printf("decision made\n");
+=======
+
+>>>>>>> other
 		// Enforce the decision
 		enforceDecision(tempPiece.decision);
 printf("decision enforced\n");
@@ -1006,8 +1045,56 @@ void calibrateHeight(){
 		//delay after state 3
 		OSTimeDly(OS_TICKS_PER_SEC);
     	moveFestoUp();
+<<<<<<< local
+=======
+	// Move the Festo to the upper position
+
+   while(!checkRiserUp()){
+
+		OSTimeDly(OS_TICKS_PER_SEC);
+	}
+	stopFestoUp();
+
+	// Delay Briefly for safety and to make sure it is set in the right place
+	OSTimeDly(OS_TICKS_PER_SEC);
+
+    // Move the height reading down so the height can be read and wait until
+    // it is confirmed that the height measure is down
+   if(!isPlusBoard){
+		moveMeasureDown();
+
+		while(!checkMeasureDown()){
+
+			OSTimeDly(OS_TICKS_PER_SEC);
+
+		}
+   }
+	// Read the first value
+
+	firstPiece = anaIn(0, SINGLE, GAIN_ADC);
+	// Reset back to the base position by moving the measure back up and the festo
+	// back to the lower position
+   if(!isPlusBoard){
+		stopMeasureDown();
+   }
+
+	OSTimeDly(OS_TICKS_PER_SEC);
+
+	moveFestoDown();
+	while(checkRiserUp()){
+		OSTimeDly(OS_TICKS_PER_SEC);
+	}
+	stopFestoDown();
+
+	printf("Please remove the 25mm Piece\n");
+   while(checkInPlace()){OSTimeDly(OS_TICKS_PER_SEC);};
+	printf("Please insert the 28mm Piece\n");
+   while(!checkInPlace()){OSTimeDly(OS_TICKS_PER_SEC);};
+	OSTimeDly(OS_TICKS_PER_SEC);
+>>>>>>> other
 
 	// Move the Festo to the upper position
+<<<<<<< local
    printf("moving up\n");
    while(!checkRiserUp()){
       printf("not up\n");
@@ -1054,6 +1141,8 @@ void calibrateHeight(){
 	OSTimeDly(OS_TICKS_PER_SEC);
 
 	// Move the Festo to the upper position
+=======
+>>>>>>> other
 	moveFestoUp();
 	while(!checkRiserUp()){
 
